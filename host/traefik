@@ -1,0 +1,105 @@
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Config
+# -----------------------------
+TRAEFIK_DIR="/traefik"
+COMPOSE_FILE="$TRAEFIK_DIR/docker-compose.yml"
+CONFIG_FILE="$TRAEFIK_DIR/traefik.yml"
+LETSENCRYPT_DIR="$TRAEFIK_DIR/letsencrypt"
+
+# -----------------------------
+# Helper function for errors
+# -----------------------------
+fatal() {
+  echo "Error: $*" >&2
+  exit 1
+}
+
+# -----------------------------
+# Step 1: Create directory structure
+# -----------------------------
+echo "Creating Traefik directory structure at $TRAEFIK_DIR..."
+sudo mkdir -p "$LETSENCRYPT_DIR" || fatal "Failed to create $LETSENCRYPT_DIR"
+cd "$TRAEFIK_DIR" || fatal "Failed to cd into $TRAEFIK_DIR"
+
+# Ensure correct permissions
+sudo touch "$LETSENCRYPT_DIR/acme.json"
+sudo chmod 600 "$LETSENCRYPT_DIR/acme.json"
+
+# -----------------------------
+# Step 2: Create traefik.yml
+# -----------------------------
+echo "Writing $CONFIG_FILE..."
+sudo tee "$CONFIG_FILE" > /dev/null <<'EOF'
+api:
+  dashboard: false
+  insecure: false
+
+log:
+  level: DEBUG
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: dev.chempa@gmail.com
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
+EOF
+
+# -----------------------------
+# Step 3: Create docker-compose.yml
+# -----------------------------
+echo "Writing $COMPOSE_FILE..."
+sudo tee "$COMPOSE_FILE" > /dev/null <<'EOF'
+version: "3.9"
+
+services:
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./traefik.yml:/traefik.yml:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+    networks:
+      - traefik-net
+    restart: unless-stopped
+
+networks:
+  traefik-net:
+    name: traefik-net
+EOF
+
+# -----------------------------
+# Step 4: Launch Traefik
+# -----------------------------
+echo "Starting Traefik using Docker Compose..."
+sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Traefik"
+
+echo "✅ Traefik setup complete!"
+echo "Files created in: $TRAEFIK_DIR"
+echo "To check logs, run: docker logs -f traefik"
