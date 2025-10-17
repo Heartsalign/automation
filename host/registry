@@ -5,8 +5,9 @@ set -euo pipefail
 # Configuration
 # -----------------------------
 REGISTRY_DIR="/bootstrap/registry"
+VOLUMES_DIR="/volumes"
 AUTH_DIR="$REGISTRY_DIR/auth"
-DATA_DIR="$REGISTRY_DIR/data"
+DATA_DIR="$VOLUMES_DIR/registry_data"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
 AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
 
@@ -64,7 +65,7 @@ echo "📝 Writing $COMPOSE_FILE..."
 sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
 services:
   registry-server:
-    image: registry:2
+    image: registry:latest
     container_name: registry-server
     restart: always
     environment:
@@ -83,11 +84,11 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # HTTPS router
-      - "traefik.http.routers.registry.rule=Host(`${TRAEFIK_HOST}`)"
-      - "traefik.http.routers.registry.entrypoints=websecure"
-      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
-      - "traefik.http.services.registry.loadbalancer.server.port=5000"
+      # # HTTPS router
+      # - "traefik.http.routers.registry.rule=Host(`${TRAEFIK_HOST}`)"
+      # - "traefik.http.routers.registry.entrypoints=websecure"
+      # - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
+      # - "traefik.http.services.registry.loadbalancer.server.port=5000"
 
       # HTTP router (no redirect)
       - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
