@@ -9,11 +9,8 @@ VOLUMES_DIR="/volumes"
 REGISTRY_DATA_DIR="$VOLUMES_DIR/registry"
 AUTH_DIR="$REGISTRY_DATA_DIR/auth"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
-AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
 
 TRAEFIK_HOST="registry.faithlink.io"
-DEFAULT_USER="docker"
-DEFAULT_PASS="docker-pass"
 
 # -----------------------------
 # Helper for error handling
@@ -31,35 +28,24 @@ sudo mkdir -p "$REGISTRY_DIR" "$AUTH_DIR" "$REGISTRY_DATA_DIR/registry" || fatal
 cd "$REGISTRY_DIR" || fatal "Failed to cd into $REGISTRY_DIR"
 
 # -----------------------------
-# Step 2: Create the auth setup script
+# Step 2: Get username and password interactively
 # -----------------------------
-echo "🧩 Creating $AUTH_SCRIPT..."
-sudo tee "$AUTH_SCRIPT" > /dev/null <<'EOS'
-#!/bin/bash
-set -euo pipefail
+read -p "Enter registry username [docker]: " USERNAME
+USERNAME=${USERNAME:-docker}
+
+read -s -p "Enter registry password [docker-pass]: " PASSWORD
+PASSWORD=${PASSWORD:-docker-pass}
+echo
 
 # -----------------------------
-# Config
+# Step 3: Create htpasswd file
 # -----------------------------
-AUTH_DIR="./auth"
-USERNAME="${1:-docker}"
-PASSWORD="${2:-docker-pass}"
-
-# -----------------------------
-# Setup auth directory
-# -----------------------------
-mkdir -p "$AUTH_DIR"
-
-echo "🧩 Creating htpasswd file for user '$USERNAME'..."
-docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$USERNAME" "$PASSWORD" > "$AUTH_DIR/htpasswd"
-
+echo "🔐 Creating htpasswd file for user '$USERNAME'..."
+sudo docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$USERNAME" "$PASSWORD" > "$AUTH_DIR/htpasswd"
 echo "✅ Authentication file created at $AUTH_DIR/htpasswd"
-EOS
-
-sudo chmod +x "$AUTH_SCRIPT"
 
 # -----------------------------
-# Step 3: Create docker-compose.yml
+# Step 4: Create docker-compose.yml
 # -----------------------------
 echo "📝 Writing $COMPOSE_FILE..."
 sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
@@ -87,7 +73,6 @@ services:
       - "traefik.http.routers.registry.entrypoints=websecure"
       - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
       - "traefik.http.services.registry.loadbalancer.server.port=5000"
-
     networks:
       - traefik-net
 
@@ -95,12 +80,6 @@ networks:
   traefik-net:
     external: true
 EOF
-
-# -----------------------------
-# Step 4: Generate default auth
-# -----------------------------
-echo "🔐 Creating default authentication for user '$DEFAULT_USER'..."
-sudo bash "$AUTH_SCRIPT" "$DEFAULT_USER" "$DEFAULT_PASS"
 
 # -----------------------------
 # Step 5: Start registry
@@ -116,8 +95,7 @@ echo "✅ Docker Registry setup complete!"
 echo
 echo "📦 Registry Info:"
 echo "  URL: https://${TRAEFIK_HOST}"
-echo "  Username: $DEFAULT_USER"
-echo "  Password: $DEFAULT_PASS"
+echo "  Username: $USERNAME"
+echo "  Password: $PASSWORD"
 echo
 echo "📁 Files located at: $REGISTRY_DIR"
-echo "To change credentials later, run: $AUTH_SCRIPT <new_user> <new_pass> && sudo docker compose -f $COMPOSE_FILE restart"
