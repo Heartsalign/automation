@@ -43,26 +43,30 @@ fi
 cat > "$COMPOSE_FILE" <<EOF
 services:
   code-server:
-    image: coder/code-server:latest
+    image: linuxserver/code-server:latest
     container_name: code-server
-    env_file:
-      - .env
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - PASSWORD_FILE=/config/.env
     volumes:
-      - "${CODE_DIR}:/home/coder/project"
-      - "/var/run/docker.sock:/var/run/docker.sock"  # docker access
+      - ./code-server:/config
+      - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.code-server.rule=Host(\`${TRAEFIK_HOST}\`)"
+      - "traefik.http.routers.code-server.rule=Host(`codeserver.heartsalign.net`)"
       - "traefik.http.routers.code-server.entrypoints=websecure"
       - "traefik.http.routers.code-server.tls.certresolver=letsencrypt"
-      - "traefik.http.services.code-server.loadbalancer.server.port=8080"
+      - "traefik.http.services.code-server.loadbalancer.server.port=8443"
     networks:
-      - $TRAEFIK_NETWORK
+      - traefik-net
     restart: unless-stopped
 
 networks:
-  $TRAEFIK_NETWORK:
+  traefik-net:
     external: true
+
 EOF
 
 # -----------------------------
