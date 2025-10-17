@@ -71,7 +71,7 @@ services:
       - "traefik.http.services.registry.loadbalancer.server.port=5000"
 
       # HTTP router (web) restricted to portainer
-      - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.registry-http.rule=Host(`secure.${TRAEFIK_HOST}`)"
       - "traefik.http.routers.registry-http.entrypoints=web"
       - "traefik.http.routers.registry-http.middlewares=allow-portainer"
       - "traefik.http.services.registry-http.loadbalancer.server.port=5000"
