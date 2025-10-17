@@ -17,8 +17,6 @@ fatal() { echo "❌ Error: $*" >&2; exit 1; }
 info() { echo "➡️  $*"; }
 success() { echo "✅ $*"; }
 
-sudo docker compose -f "$COMPOSE_FILE" down
-
 # -----------------------------
 # Step 1: Create directories
 # -----------------------------
@@ -68,6 +66,7 @@ EOF
 # Step 4: Bring up Portainer
 # -----------------------------
 info "Starting Portainer with Docker Compose..."
+sudo docker compose -f "$COMPOSE_FILE" down
 sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Portainer"
 
 # -----------------------------
