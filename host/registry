@@ -1,0 +1,104 @@
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Configuration
+# -----------------------------
+REGISTRY_DIR="/registry"
+AUTH_DIR="$REGISTRY_DIR/auth"
+DATA_DIR="$REGISTRY_DIR/data"
+COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
+AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
+
+TRAEFIK_HOST="registry.faithlink.io"
+
+# -----------------------------
+# Helper for error handling
+# -----------------------------
+fatal() {
+  echo "❌ Error: $*" >&2
+  exit 1
+}
+
+# -----------------------------
+# Step 1: Create directory structure
+# -----------------------------
+echo "📁 Creating directory structure at $REGISTRY_DIR..."
+sudo mkdir -p "$AUTH_DIR" "$DATA_DIR" || fatal "Failed to create registry directories"
+cd "$REGISTRY_DIR" || fatal "Failed to cd into $REGISTRY_DIR"
+
+# -----------------------------
+# Step 2: Create the auth setup script
+# -----------------------------
+echo "🧩 Creating $AUTH_SCRIPT..."
+sudo tee "$AUTH_SCRIPT" > /dev/null <<'EOS'
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Config
+# -----------------------------
+AUTH_DIR="./auth"
+USERNAME="${1:-docker}"
+PASSWORD="${2:-docker-pass}"
+
+# -----------------------------
+# Setup auth directory
+# -----------------------------
+mkdir -p "$AUTH_DIR"
+
+echo "🧩 Creating htpasswd file for user '$USERNAME'..."
+docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$USERNAME" "$PASSWORD" > "$AUTH_DIR/htpasswd"
+
+echo "✅ Authentication file created at $AUTH_DIR/htpasswd"
+EOS
+
+sudo chmod +x "$AUTH_SCRIPT"
+
+# -----------------------------
+# Step 3: Create docker-compose.yml
+# -----------------------------
+echo "📝 Writing $COMPOSE_FILE..."
+sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
+services:
+  registry-server:
+    image: registry:2
+    container_name: registry-server
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: '[https://${TRAEFIK_HOST}]'
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods: '[HEAD,GET,OPTIONS,DELETE]'
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Credentials: '[true]'
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers: '[Authorization,Accept,Cache-Control]'
+      REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: '[Docker-Content-Digest]'
+      REGISTRY_STORAGE_DELETE_ENABLED: 'true'
+    volumes:
+      - ./auth:/auth
+      - ./data:/var/lib/registry
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.registry.rule=Host(\`${TRAEFIK_HOST}\`)"
+      - "traefik.http.routers.registry.entrypoints=websecure"
+      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
+      - "traefik.http.services.registry.loadbalancer.server.port=5000"
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    external: true
+EOF
+
+# -----------------------------
+# Step 4: Instructions
+# -----------------------------
+echo "✅ Setup complete!"
+echo "Next steps:"
+echo "1️⃣  Run: cd $REGISTRY_DIR"
+echo "2️⃣  Run: ./setup-auth.sh <username> <password>"
+echo "3️⃣  Start registry: sudo docker compose -f docker-compose.yml up -d"
+echo
+echo "Registry will be available via Traefik at: https://${TRAEFIK_HOST}"
