@@ -1,0 +1,101 @@
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Configuration
+# -----------------------------
+VAULT_DIR="/vault"
+VAULT_CONFIG_DIR="$VAULT_DIR/config"
+VAULT_DATA_DIR="/volumes/vault"
+COMPOSE_FILE="$VAULT_DIR/docker-compose.yml"
+CONFIG_FILE="$VAULT_CONFIG_DIR/config.hcl"
+NETWORK_NAME="traefik-net"
+
+# -----------------------------
+# Helper functions
+# -----------------------------
+fatal() { echo "❌ Error: $*" >&2; exit 1; }
+info() { echo "➡️  $*"; }
+success() { echo "✅ $*"; }
+
+# -----------------------------
+# Step 1: Create directories
+# -----------------------------
+info "Creating directories..."
+sudo mkdir -p "$VAULT_CONFIG_DIR" "$VAULT_DATA_DIR" || fatal "Failed to create directories"
+
+cd "$VAULT_DIR" || fatal "Failed to cd into $VAULT_DIR"
+
+# -----------------------------
+# Step 2: Ensure external Docker network exists
+# -----------------------------
+if ! sudo docker network ls --format '{{.Name}}' | grep -q "^${NETWORK_NAME}\$"; then
+  info "Creating external Docker network: $NETWORK_NAME"
+  sudo docker network create "$NETWORK_NAME" || fatal "Failed to create network $NETWORK_NAME"
+else
+  info "Network $NETWORK_NAME already exists"
+fi
+
+# -----------------------------
+# Step 3: Write config.hcl
+# -----------------------------
+info "Writing Vault configuration..."
+sudo tee "$CONFIG_FILE" > /dev/null <<'EOF'
+ui            = true
+api_addr      = "https://vault.faithlink.io"
+disable_mlock = true
+
+storage "file" {
+  path = "/vault/file"
+}
+
+listener "tcp" {
+  tls_disable = true
+  address     = "0.0.0.0:3000"
+}
+EOF
+
+# -----------------------------
+# Step 4: Write docker-compose.yml (no Dockerfile)
+# -----------------------------
+info "Writing docker-compose.yml..."
+sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
+services:
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ${VAULT_DATA_DIR}:/vault/file
+      - ${CONFIG_FILE}:/vault/config/config.hcl:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vault.rule=Host(\`vault.faithlink.io\`)"
+      - "traefik.http.routers.vault.entrypoints=websecure"
+      - "traefik.http.routers.vault.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vault.loadbalancer.server.port=3000"
+    networks:
+      - ${NETWORK_NAME}
+    restart: unless-stopped
+
+networks:
+  ${NETWORK_NAME}:
+    external: true
+EOF
+
+# -----------------------------
+# Step 5: Launch Vault
+# -----------------------------
+info "Starting Vault..."
+sudo docker compose -f "$COMPOSE_FILE" down
+sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Vault"
+
+# -----------------------------
+# Done
+# -----------------------------
+success "Vault setup complete!"
+echo "📦 Data stored in: $VAULT_DATA_DIR"
+echo "⚙️  Config mounted from: $CONFIG_FILE"
+echo "🌐 Access at: https://vault.faithlink.io"
+echo "🪵 Logs: docker logs -f vault"
