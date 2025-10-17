@@ -4,7 +4,8 @@ set -euo pipefail
 # -----------------------------
 # Config
 # -----------------------------
-PORTAINER_DIR="/portainer"
+BOOTSTRAP_DIR=/bootstrap
+PORTAINER_DIR="$BOOTSTRAP_DIR/portainer"
 VOLUMES_DIR="/volumes"
 PORTAINER_VOLUME_DIR="$VOLUMES_DIR/portainer_data"
 COMPOSE_FILE="$PORTAINER_DIR/docker-compose.yml"

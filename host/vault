@@ -4,7 +4,8 @@ set -euo pipefail
 # -----------------------------
 # Configuration
 # -----------------------------
-VAULT_DIR="/vault"
+BOOTSTRAP_DIR=/bootstrap
+VAULT_DIR="$BOOTSTRAP_DIR/vault"
 VAULT_CONFIG_DIR="$VAULT_DIR/config"
 VAULT_DATA_DIR="/volumes/vault"
 COMPOSE_FILE="$VAULT_DIR/docker-compose.yml"

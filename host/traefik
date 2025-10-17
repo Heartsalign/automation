@@ -4,7 +4,8 @@ set -euo pipefail
 # -----------------------------
 # Config
 # -----------------------------
-TRAEFIK_DIR="/traefik"
+BOOTSTRAP_DIR=/bootstrap
+TRAEFIK_DIR="$BOOTSTRAP_DIR/traefik"
 COMPOSE_FILE="$TRAEFIK_DIR/docker-compose.yml"
 CONFIG_FILE="$TRAEFIK_DIR/traefik.yml"
 LETSENCRYPT_DIR="$TRAEFIK_DIR/letsencrypt"
