@@ -80,7 +80,7 @@ services:
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
       - $DATA_DIR/auth:/auth
-      - $DATA_DIR/data:/var/lib/registry
+      - $DATA_DIR/registry:/var/lib/registry
     labels:
       - "traefik.enable=true"
 
