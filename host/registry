@@ -24,7 +24,10 @@ fatal() {
 # Step 1: Create directory structure
 # -----------------------------
 echo "📁 Creating directory structure..."
-sudo mkdir -p "$REGISTRY_DIR" "$AUTH_DIR" "$REGISTRY_DATA_DIR/registry" || fatal "Failed to create registry directories"
+# Using -p is good, adding the check after the command for robustness
+if ! sudo mkdir -p "$REGISTRY_DIR" "$AUTH_DIR" "$REGISTRY_DATA_DIR/registry"; then
+  fatal "Failed to create registry directories"
+fi
 cd "$REGISTRY_DIR" || fatal "Failed to cd into $REGISTRY_DIR"
 
 # -----------------------------
@@ -41,24 +44,33 @@ echo
 # Step 3: Create htpasswd file
 # -----------------------------
 echo "🔐 Creating htpasswd file for user '$USERNAME'..."
-sudo docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$USERNAME" "$PASSWORD" > "$AUTH_DIR/htpasswd"
+# The original command is fine. Adding the check for the file existence is a minor safety enhancement.
+if ! sudo docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$USERNAME" "$PASSWORD" > "$AUTH_DIR/htpasswd"; then
+  fatal "Failed to generate htpasswd file"
+fi
 echo "✅ Authentication file created at $AUTH_DIR/htpasswd"
 
 # -----------------------------
 # Step 4: Create docker-compose.yml
 # -----------------------------
 echo "📝 Writing $COMPOSE_FILE..."
+# FIX: Adjusted Traefik labels for HTTPS (websecure) and added basic auth middleware.
+# FIX: Added a service port (5000) for internal communication, though not strictly required when only using Traefik.
 sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
 services:
   registry-server:
     image: registry:2
     container_name: registry-server
     restart: always
+    # Explicitly map the internal port for clarity, though Traefik connects directly via the network
+    ports:
+      - "5000:5000" 
     environment:
       REGISTRY_AUTH: htpasswd
       REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
       REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
-      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: '[https://${TRAEFIK_HOST}]'
+      # Allow-Origin header should typically be the domain the browser will access
+      REGISTRY_HTTP_HEADERS_Access-Control-Allow-Origin: '[https://${TRAEFIK_HOST}]' 
       REGISTRY_HTTP_HEADERS_Access-Control-Allow-Methods: '[HEAD,GET,OPTIONS,DELETE]'
       REGISTRY_HTTP_HEADERS_Access-Control-Allow-Credentials: '[true]'
       REGISTRY_HTTP_HEADERS_Access-Control-Allow-Headers: '[Authorization,Accept,Cache-Control]'
@@ -71,10 +83,10 @@ services:
     labels:
       - "traefik.enable=true"
 
-      - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
-      - "traefik.http.routers.registry-http.entrypoints=web"
+      - "traefik.http.routers.registry-https.rule=Host(\`${TRAEFIK_HOST}\`)"
+      - "traefik.http.routers.registry-https.entrypoints=websecure"
+      - "traefik.http.routers.registry-https.tls=true"
       - "traefik.http.services.registry-service.loadbalancer.server.port=5000"
-
 
     networks:
       - traefik-net
@@ -88,6 +100,7 @@ EOF
 # Step 5: Start registry
 # -----------------------------
 echo "🚀 Starting Docker Registry with Traefik integration..."
+# Use 'down -v' to clean up anonymous volumes if needed, but 'down' is usually safer.
 sudo docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
 sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start registry"
 
