@@ -4,7 +4,8 @@ set -euo pipefail
 # -----------------------------
 # Configuration
 # -----------------------------
-REGISTRY_DIR="/registry"
+BOOTSTRAP_DIR=/bootstrap
+REGISTRY_DIR="$BOOTSTRAP_DIR/registry"
 AUTH_DIR="$REGISTRY_DIR/auth"
 DATA_DIR="$REGISTRY_DIR/data"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
