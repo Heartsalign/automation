@@ -6,7 +6,7 @@ set -euo pipefail
 # -----------------------------
 REGISTRY_DIR="/bootstrap/registry"
 VOLUMES_DIR="/volumes"
-DATA_DIR="$VOLUMES_DIR/registry_data"
+DATA_DIR="$VOLUMES_DIR/registry"
 AUTH_DIR="$DATA_DIR/auth"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
 AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
@@ -26,8 +26,8 @@ fatal() {
 # -----------------------------
 # Step 1: Create directory structure
 # -----------------------------
-echo "📁 Creating directory structure at $REGISTRY_DIR..."
-sudo mkdir -p "$AUTH_DIR" "$DATA_DIR" || fatal "Failed to create registry directories"
+echo "📁 Creating directory structure..."
+sudo mkdir -p "$AUTH_DIR" "$DATA_DIR/registry" || fatal "Failed to create registry directories"
 cd "$REGISTRY_DIR" || fatal "Failed to cd into $REGISTRY_DIR"
 
 # -----------------------------
@@ -65,7 +65,7 @@ echo "📝 Writing $COMPOSE_FILE..."
 sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
 services:
   registry-server:
-    image: registry:latest
+    image: registry:2
     container_name: registry-server
     restart: always
     environment:
@@ -79,19 +79,19 @@ services:
       REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: '[Docker-Content-Digest]'
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
-      - $DATA_DIR/auth:/auth
+      - $AUTH_DIR:/auth
       - $DATA_DIR/registry:/var/lib/registry
     labels:
       - "traefik.enable=true"
 
       # HTTPS router
-      - "traefik.http.routers.registry.rule=Host(`${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.registry.rule=Host(\`${TRAEFIK_HOST}\`)"
       - "traefik.http.routers.registry.entrypoints=websecure"
       - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
       - "traefik.http.services.registry.loadbalancer.server.port=5000"
 
-      # HTTP router (no redirect)
-      - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
+      # HTTP router (insecure, no redirect)
+      - "traefik.http.routers.registry-http.rule=Host(\`${TRAEFIK_HOST}\`)"
       - "traefik.http.routers.registry-http.entrypoints=web"
       - "traefik.http.services.registry-http.loadbalancer.server.port=5000"
 
