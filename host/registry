@@ -64,11 +64,11 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # # HTTPS router
-      # - "traefik.http.routers.registry.rule=Host(`secure.${TRAEFIK_HOST}`)"
-      # - "traefik.http.routers.registry.entrypoints=websecure"
-      # - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
-      # - "traefik.http.services.registry.loadbalancer.server.port=5000"
+      # HTTPS router
+      - "traefik.http.routers.registry.rule=Host(`secure.${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.registry.entrypoints=websecure"
+      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
+      - "traefik.http.services.registry.loadbalancer.server.port=5000"
 
       # HTTP router (web) restricted to portainer
       - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
