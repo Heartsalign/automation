@@ -17,7 +17,7 @@ fatal() {
   exit 1
 }
 
-sudo docker compose -f "$COMPOSE_FILE" down || fatal "Failed to stop Traefik"
+sudo docker compose -f "$COMPOSE_FILE" down
 
 # -----------------------------
 # Step 1: Create directory structure

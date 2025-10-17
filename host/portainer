@@ -1,0 +1,79 @@
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Config
+# -----------------------------
+PORTAINER_DIR="/portainer"
+VOLUMES_DIR="/volumes"
+PORTAINER_VOLUME_DIR="$VOLUMES_DIR/portainer_data"
+COMPOSE_FILE="$PORTAINER_DIR/docker-compose.yml"
+NETWORK_NAME="traefik-net"
+
+# -----------------------------
+# Helpers
+# -----------------------------
+fatal() { echo "❌ Error: $*" >&2; exit 1; }
+info() { echo "➡️  $*"; }
+success() { echo "✅ $*"; }
+
+sudo docker compose -f "$COMPOSE_FILE" down
+
+# -----------------------------
+# Step 1: Create directories
+# -----------------------------
+info "Creating required directories..."
+sudo mkdir -p "$PORTAINER_DIR" "$PORTAINER_VOLUME_DIR" || fatal "Failed to create directories"
+
+cd "$PORTAINER_DIR" || fatal "Failed to cd into $PORTAINER_DIR"
+
+# -----------------------------
+# Step 2: Ensure external Docker network exists
+# -----------------------------
+if ! sudo docker network ls --format '{{.Name}}' | grep -q "^${NETWORK_NAME}\$"; then
+  info "Creating external Docker network: $NETWORK_NAME"
+  sudo docker network create "$NETWORK_NAME" || fatal "Failed to create network $NETWORK_NAME"
+else
+  info "Network $NETWORK_NAME already exists"
+fi
+
+# -----------------------------
+# Step 3: Write docker-compose.yml
+# -----------------------------
+info "Writing $COMPOSE_FILE..."
+sudo tee "$COMPOSE_FILE" > /dev/null <<EOF
+services:
+  portainer:
+    image: portainer/portainer-ee:2.21.1
+    container_name: portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PORTAINER_VOLUME_DIR}:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(\`portainer.heartsalign.net\`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+    networks:
+      - traefik-net
+    restart: unless-stopped
+
+networks:
+  traefik-net:
+    external: true
+EOF
+
+# -----------------------------
+# Step 4: Bring up Portainer
+# -----------------------------
+info "Starting Portainer with Docker Compose..."
+sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Portainer"
+
+# -----------------------------
+# Done
+# -----------------------------
+success "Portainer setup complete!"
+echo "📦 Data stored in: $PORTAINER_VOLUME_DIR"
+echo "🌐 Access it at: https://portainer.heartsalign.net"
+echo "🪵 Logs: docker logs -f portainer"
