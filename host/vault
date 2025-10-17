@@ -78,6 +78,7 @@ services:
     networks:
       - ${NETWORK_NAME}
     restart: unless-stopped
+    command: vault server -config=/vault/config/config.hcl
 
 networks:
   ${NETWORK_NAME}:
