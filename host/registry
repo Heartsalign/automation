@@ -4,14 +4,15 @@ set -euo pipefail
 # -----------------------------
 # Configuration
 # -----------------------------
-BOOTSTRAP_DIR=/bootstrap
-REGISTRY_DIR="$BOOTSTRAP_DIR/registry"
+REGISTRY_DIR="/bootstrap/registry"
 AUTH_DIR="$REGISTRY_DIR/auth"
 DATA_DIR="$REGISTRY_DIR/data"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
 AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
 
 TRAEFIK_HOST="registry.faithlink.io"
+DEFAULT_USER="docker"
+DEFAULT_PASS="docker-pass"
 
 # -----------------------------
 # Helper for error handling
@@ -94,12 +95,27 @@ networks:
 EOF
 
 # -----------------------------
-# Step 4: Instructions
+# Step 4: Generate default auth
 # -----------------------------
-echo "✅ Setup complete!"
-echo "Next steps:"
-echo "1️⃣  Run: cd $REGISTRY_DIR"
-echo "2️⃣  Run: ./setup-auth.sh <username> <password>"
-echo "3️⃣  Start registry: sudo docker compose -f docker-compose.yml up -d"
+echo "🔐 Creating default authentication for user '$DEFAULT_USER'..."
+sudo bash "$AUTH_SCRIPT" "$DEFAULT_USER" "$DEFAULT_PASS"
+
+# -----------------------------
+# Step 5: Start registry
+# -----------------------------
+echo "🚀 Starting Docker Registry with Traefik integration..."
+sudo docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1 || true
+sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start registry"
+
+# -----------------------------
+# Done
+# -----------------------------
+echo "✅ Docker Registry setup complete!"
 echo
-echo "Registry will be available via Traefik at: https://${TRAEFIK_HOST}"
+echo "📦 Registry Info:"
+echo "  URL: https://${TRAEFIK_HOST}"
+echo "  Username: $DEFAULT_USER"
+echo "  Password: $DEFAULT_PASS"
+echo
+echo "📁 Files located at: $REGISTRY_DIR"
+echo "To change credentials later, run: $AUTH_SCRIPT <new_user> <new_pass> && sudo docker compose -f $COMPOSE_FILE restart"
