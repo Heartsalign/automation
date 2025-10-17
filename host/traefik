@@ -71,8 +71,6 @@ EOF
 # -----------------------------
 echo "Writing $COMPOSE_FILE..."
 sudo tee "$COMPOSE_FILE" > /dev/null <<'EOF'
-version: "3.9"
-
 services:
   traefik:
     image: traefik:v3.1
@@ -98,6 +96,7 @@ EOF
 # Step 4: Launch Traefik
 # -----------------------------
 echo "Starting Traefik using Docker Compose..."
+sudo docker compose -f "$COMPOSE_FILE" down -d || fatal "Failed to start Traefik"
 sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Traefik"
 
 echo "✅ Traefik setup complete!"
