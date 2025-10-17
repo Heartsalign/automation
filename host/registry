@@ -6,8 +6,8 @@ set -euo pipefail
 # -----------------------------
 REGISTRY_DIR="/bootstrap/registry"
 VOLUMES_DIR="/volumes"
-AUTH_DIR="$REGISTRY_DIR/auth"
 DATA_DIR="$VOLUMES_DIR/registry_data"
+AUTH_DIR="$DATA_DIR/auth"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
 AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
 
@@ -79,8 +79,8 @@ services:
       REGISTRY_HTTP_HEADERS_Access-Control-Expose-Headers: '[Docker-Content-Digest]'
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
-      - ./auth:/auth
-      - ./data:/var/lib/registry
+      - $DATA_DIR/auth:/auth
+      - $DATA_DIR:/var/lib/registry
     labels:
       - "traefik.enable=true"
 
