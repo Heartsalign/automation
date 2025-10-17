@@ -64,22 +64,17 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # HTTPS router
-      - "traefik.http.routers.registry.rule=Host(`${TRAEFIK_HOST}`)"
-      - "traefik.http.routers.registry.entrypoints=websecure"
-      - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
-      - "traefik.http.services.registry.loadbalancer.server.port=5000"
+      # # HTTPS router
+      # - "traefik.http.routers.registry.rule=Host(`secure.${TRAEFIK_HOST}`)"
+      # - "traefik.http.routers.registry.entrypoints=websecure"
+      # - "traefik.http.routers.registry.tls.certresolver=letsencrypt"
+      # - "traefik.http.services.registry.loadbalancer.server.port=5000"
 
       # HTTP router (web) restricted to portainer
-      - "traefik.http.routers.registry-http.rule=Host(`secure.${TRAEFIK_HOST}`)"
+      - "traefik.http.routers.registry-http.rule=Host(`${TRAEFIK_HOST}`)"
       - "traefik.http.routers.registry-http.entrypoints=web"
-      - "traefik.http.routers.registry-http.middlewares=allow-portainer"
       - "traefik.http.services.registry-http.loadbalancer.server.port=5000"
 
-      # Middleware to allow only from Portainer (by Referer or Origin)
-      - "traefik.http.middlewares.allow-portainer.headers.customrequestheaders.X-Allowed-Referer=portainer.faithlink.io"
-      - "traefik.http.middlewares.allow-portainer.headers.customresponseheaders.X-Registry-Access=Restricted"
-      - "traefik.http.middlewares.allow-portainer.plugin.refererblock.allowedreferrers=portainer.faithlink.io"
     networks:
       - traefik-net
 
