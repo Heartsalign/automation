@@ -6,8 +6,8 @@ set -euo pipefail
 # -----------------------------
 REGISTRY_DIR="/bootstrap/registry"
 VOLUMES_DIR="/volumes"
-DATA_DIR="$VOLUMES_DIR/registry"
-AUTH_DIR="$DATA_DIR/auth"
+REGISTRY_DATA_DIR="$VOLUMES_DIR/registry"
+AUTH_DIR="$REGISTRY_DATA_DIR/auth"
 COMPOSE_FILE="$REGISTRY_DIR/docker-compose.yml"
 AUTH_SCRIPT="$REGISTRY_DIR/setup-auth.sh"
 
@@ -27,7 +27,7 @@ fatal() {
 # Step 1: Create directory structure
 # -----------------------------
 echo "📁 Creating directory structure..."
-sudo mkdir -p "$REGISTRY_DIR" "$AUTH_DIR" "$DATA_DIR/registry" || fatal "Failed to create registry directories"
+sudo mkdir -p "$REGISTRY_DIR" "$AUTH_DIR" "$REGISTRY_DATA_DIR/registry" || fatal "Failed to create registry directories"
 cd "$REGISTRY_DIR" || fatal "Failed to cd into $REGISTRY_DIR"
 
 # -----------------------------
@@ -80,7 +80,7 @@ services:
       REGISTRY_STORAGE_DELETE_ENABLED: 'true'
     volumes:
       - $AUTH_DIR:/auth
-      - $DATA_DIR/registry:/var/lib/registry
+      - $REGISTRY_DATA_DIR/registry:/var/lib/registry
     labels:
       - "traefik.enable=true"
 
