@@ -13,7 +13,7 @@ CODE_PORT=8080  # local fallback port
 
 # Traefik settings
 TRAEFIK_NETWORK="traefik-net"
-TRAEFIK_HOST="code.heartsalign.net"  # change to your domain
+TRAEFIK_HOST="code.faithlink.io"  # change to your domain
 
 # -----------------------------
 # Helper function for errors
@@ -41,6 +41,7 @@ fi
 # Step 3: Create docker-compose.yml
 # -----------------------------
 cat > "$COMPOSE_FILE" <<EOF
+
 services:
   code-server:
     image: linuxserver/code-server:latest
@@ -55,7 +56,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.code-server.rule=Host(`codeserver.heartsalign.net`)"
+      - "traefik.http.routers.code-server.rule=Host(`code.faithlink.io`)"
       - "traefik.http.routers.code-server.entrypoints=websecure"
       - "traefik.http.routers.code-server.tls.certresolver=letsencrypt"
       - "traefik.http.services.code-server.loadbalancer.server.port=8443"
