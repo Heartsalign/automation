@@ -49,7 +49,7 @@ services:
       - ${PORTAINER_VOLUME_DIR}:/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(\`portainer.heartsalign.net\`)"
+      - "traefik.http.routers.portainer.rule=Host(\`portainer.faithlink.io\`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
@@ -74,5 +74,5 @@ sudo docker compose -f "$COMPOSE_FILE" up -d || fatal "Failed to start Portainer
 # -----------------------------
 success "Portainer setup complete!"
 echo "📦 Data stored in: $PORTAINER_VOLUME_DIR"
-echo "🌐 Access it at: https://portainer.heartsalign.net"
+echo "🌐 Access it at: https://portainer.faithlink.io"
 echo "🪵 Logs: docker logs -f portainer"
