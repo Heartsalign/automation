@@ -23,7 +23,7 @@ usage() {
   echo "  -u   GitLab URL (default: $DEFAULT_GITLAB_URL)"
   echo "  -k   Path to SSH public key (default: $SSH_KEY_PATH)"
   echo "  -n   Key name/label (default: hostname + current date)"
-  echo "  -g   Generate a new SSH key pair before uploading"
+  echo "  -g   Generate a new SSH key pair if none exists"
   exit 1
 }
 
@@ -49,30 +49,39 @@ done
 [[ -z "$PAT" ]] && usage
 
 # -----------------------------
-# Generate or ensure SSH key
+# Handle SSH key creation
 # -----------------------------
-if [[ "$GENERATE_NEW" == true ]]; then
-  echo "🔑 Generating a new SSH key pair..."
-  mkdir -p "$(dirname "$SSH_KEY_PATH")"
-  ssh-keygen -t rsa -b 4096 -f "${SSH_KEY_PATH%.pub}" -N "" -C "$(whoami)@$(hostname)"
-  echo "✅ New SSH key generated at: $SSH_KEY_PATH"
+if [[ -f "$SSH_KEY_PATH" ]]; then
+  echo "✅ Using existing SSH key: $SSH_KEY_PATH"
 else
-  if [[ ! -f "$SSH_KEY_PATH" ]]; then
-    echo "🔑 No SSH key found at $SSH_KEY_PATH, generating one..."
+  if [[ "$GENERATE_NEW" == true ]]; then
+    echo "🔑 No SSH key found, generating a new one..."
     mkdir -p "$(dirname "$SSH_KEY_PATH")"
     ssh-keygen -t rsa -b 4096 -f "${SSH_KEY_PATH%.pub}" -N "" -C "$(whoami)@$(hostname)"
-    echo "✅ SSH key generated at: $SSH_KEY_PATH"
+    echo "✅ SSH key generated: $SSH_KEY_PATH"
   else
-    echo "✅ Using existing SSH key at: $SSH_KEY_PATH"
+    fatal "No SSH key found at $SSH_KEY_PATH. Use -g to generate one."
   fi
 fi
 
 SSH_KEY_CONTENT=$(cat "$SSH_KEY_PATH")
 
 # -----------------------------
+# Check existing keys on GitLab
+# -----------------------------
+echo "🔍 Checking existing SSH keys on GitLab..."
+
+existing_keys=$(curl -s --header "PRIVATE-TOKEN: $PAT" "$GITLAB_URL/api/v4/user/keys")
+
+if echo "$existing_keys" | grep -q "$SSH_KEY_CONTENT"; then
+  echo "✅ This SSH key is already uploaded to GitLab. No action needed."
+  exit 0
+fi
+
+# -----------------------------
 # Upload SSH key to GitLab
 # -----------------------------
-echo "🚀 Uploading SSH key to GitLab at $GITLAB_URL..."
+echo "🚀 Uploading SSH key to GitLab..."
 
 response=$(curl -s -w "%{http_code}" -o /tmp/gitlab_response.txt \
   --header "PRIVATE-TOKEN: $PAT" \
