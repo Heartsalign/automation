@@ -1,0 +1,81 @@
+#!/bin/bash
+set -euo pipefail
+
+# -----------------------------
+# Configuration
+# -----------------------------
+DEFAULT_GITLAB_URL="https://gitlab.com"
+SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_rsa.pub}"
+
+# -----------------------------
+# Functions
+# -----------------------------
+fatal() {
+  echo "❌ Error: $*" >&2
+  exit 1
+}
+
+usage() {
+  echo "Usage: $0 -t <gitlab_pat> [-u <gitlab_url>] [-k <ssh_pub_key_path>] [-n <key_name>]"
+  echo
+  echo "Options:"
+  echo "  -t   GitLab Personal Access Token (required)"
+  echo "  -u   GitLab URL (default: $DEFAULT_GITLAB_URL)"
+  echo "  -k   Path to SSH public key (default: $SSH_KEY_PATH)"
+  echo "  -n   Key name/label (default: hostname + current date)"
+  exit 1
+}
+
+# -----------------------------
+# Parse Arguments
+# -----------------------------
+GITLAB_URL="$DEFAULT_GITLAB_URL"
+KEY_NAME="SSH Key - $(hostname) - $(date +'%Y-%m-%d %H:%M:%S')"
+PAT=""
+
+while getopts "t:u:k:n:" opt; do
+  case $opt in
+    t) PAT="$OPTARG" ;;
+    u) GITLAB_URL="$OPTARG" ;;
+    k) SSH_KEY_PATH="$OPTARG" ;;
+    n) KEY_NAME="$OPTARG" ;;
+    *) usage ;;
+  esac
+done
+
+[[ -z "$PAT" ]] && usage
+
+# -----------------------------
+# Ensure SSH key exists
+# -----------------------------
+if [[ ! -f "$SSH_KEY_PATH" ]]; then
+  echo "🔑 No SSH key found at $SSH_KEY_PATH, generating one..."
+  mkdir -p "$(dirname "$SSH_KEY_PATH")"
+  ssh-keygen -t rsa -b 4096 -f "${SSH_KEY_PATH%.pub}" -N "" -C "$(whoami)@$(hostname)"
+  echo "✅ SSH key generated at: $SSH_KEY_PATH"
+fi
+
+SSH_KEY_CONTENT=$(cat "$SSH_KEY_PATH")
+
+# -----------------------------
+# Upload SSH key to GitLab
+# -----------------------------
+echo "🚀 Uploading SSH key to GitLab at $GITLAB_URL..."
+
+response=$(curl -s -w "%{http_code}" -o /tmp/gitlab_response.txt \
+  --header "PRIVATE-TOKEN: $PAT" \
+  --header "Content-Type: application/json" \
+  --data "{\"title\": \"$KEY_NAME\", \"key\": \"$SSH_KEY_CONTENT\"}" \
+  "$GITLAB_URL/api/v4/user/keys")
+
+if [[ "$response" == "201" ]]; then
+  echo "✅ SSH key successfully added to GitLab."
+  echo "📄 Key name: $KEY_NAME"
+  echo "📁 Key file: $SSH_KEY_PATH"
+else
+  echo "❌ Failed to add SSH key. HTTP $response"
+  echo "Response:"
+  cat /tmp/gitlab_response.txt
+  echo
+  exit 1
+fi
