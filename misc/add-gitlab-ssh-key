@@ -16,13 +16,14 @@ fatal() {
 }
 
 usage() {
-  echo "Usage: $0 -t <gitlab_pat> [-u <gitlab_url>] [-k <ssh_pub_key_path>] [-n <key_name>]"
+  echo "Usage: $0 -t <gitlab_pat> [-u <gitlab_url>] [-k <ssh_pub_key_path>] [-n <key_name>] [-g]"
   echo
   echo "Options:"
   echo "  -t   GitLab Personal Access Token (required)"
   echo "  -u   GitLab URL (default: $DEFAULT_GITLAB_URL)"
   echo "  -k   Path to SSH public key (default: $SSH_KEY_PATH)"
   echo "  -n   Key name/label (default: hostname + current date)"
+  echo "  -g   Generate a new SSH key pair before uploading"
   exit 1
 }
 
@@ -32,13 +33,15 @@ usage() {
 GITLAB_URL="$DEFAULT_GITLAB_URL"
 KEY_NAME="SSH Key - $(hostname) - $(date +'%Y-%m-%d %H:%M:%S')"
 PAT=""
+GENERATE_NEW=false
 
-while getopts "t:u:k:n:" opt; do
+while getopts "t:u:k:n:g" opt; do
   case $opt in
     t) PAT="$OPTARG" ;;
     u) GITLAB_URL="$OPTARG" ;;
     k) SSH_KEY_PATH="$OPTARG" ;;
     n) KEY_NAME="$OPTARG" ;;
+    g) GENERATE_NEW=true ;;
     *) usage ;;
   esac
 done
@@ -46,13 +49,22 @@ done
 [[ -z "$PAT" ]] && usage
 
 # -----------------------------
-# Ensure SSH key exists
+# Generate or ensure SSH key
 # -----------------------------
-if [[ ! -f "$SSH_KEY_PATH" ]]; then
-  echo "🔑 No SSH key found at $SSH_KEY_PATH, generating one..."
+if [[ "$GENERATE_NEW" == true ]]; then
+  echo "🔑 Generating a new SSH key pair..."
   mkdir -p "$(dirname "$SSH_KEY_PATH")"
   ssh-keygen -t rsa -b 4096 -f "${SSH_KEY_PATH%.pub}" -N "" -C "$(whoami)@$(hostname)"
-  echo "✅ SSH key generated at: $SSH_KEY_PATH"
+  echo "✅ New SSH key generated at: $SSH_KEY_PATH"
+else
+  if [[ ! -f "$SSH_KEY_PATH" ]]; then
+    echo "🔑 No SSH key found at $SSH_KEY_PATH, generating one..."
+    mkdir -p "$(dirname "$SSH_KEY_PATH")"
+    ssh-keygen -t rsa -b 4096 -f "${SSH_KEY_PATH%.pub}" -N "" -C "$(whoami)@$(hostname)"
+    echo "✅ SSH key generated at: $SSH_KEY_PATH"
+  else
+    echo "✅ Using existing SSH key at: $SSH_KEY_PATH"
+  fi
 fi
 
 SSH_KEY_CONTENT=$(cat "$SSH_KEY_PATH")
